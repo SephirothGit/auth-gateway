@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package token.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/SephirothGit/auth-gateway/api/gen/token/v1;tokenv1";
+
+service TokenService {
+  rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
+  rpc RefreshTokens(RefreshTokensRequest) returns (RefreshTokensResponse);
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
+  rpc RevokeUser(RevokeUserRequest) returns (RevokeUserResponse);
+  rpc GetPublicKeys(GetPublicKeysRequest) returns (GetPublicKeysResponse);
+}
+
+message TokenPair {
+  string access_token = 1;
+  string refresh_token = 2;
+  google.protobuf.Timestamp access_expires_at = 3;
+  google.protobuf.Timestamp refresh_expires_at = 4;
+}
+
+message IssueTokensRequest {
+  string user_id = 1;
+  string role = 2; // "admin" | "user"
+}
+
+message IssueTokensResponse {
+  TokenPair tokens = 1;
+}
+
+message RefreshTokensRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokensResponse {
+  TokenPair tokens = 1;
+}
+
+message RevokeTokenRequest {
+  string refresh_token = 1;
+}
+
+message RevokeTokenResponse {}
+
+message RevokeUserRequest {
+  string user_id = 1;
+}
+
+message RevokeUserResponse {}
+
+message GetPublicKeysRequest {}
+
+message PublicKey {
+  string kid = 1;
+  string algorithm = 2;    // "EdDSA"
+  bytes public_key = 3;    // raw Ed25519 public key (32 bytes)
+}
+
+message GetPublicKeysResponse {
+  repeated PublicKey keys = 1;
+}
