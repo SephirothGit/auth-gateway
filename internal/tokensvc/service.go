@@ -43,8 +43,10 @@ func NewService(pool *pgxpool.Pool, signer *jwtutil.Signer, refreshTTL time.Dura
 func (s *Service) Issue(ctx context.Context, userID uuid.UUID, role string) (*TokenPair, error) {
 	if role != "admin" && role != "user" {
 		return nil, fmt.Errorf("%w: unknown role %q", ErrInvalidArgument, role)
+
 	}
-	return s.issue(ctx, s.pool, userID, role, uuid.New(), s.now())
+	now := s.now()
+	return s.issue(ctx, s.pool, userID, role, uuid.New(), now, now.Add(s.refreshTTL))
 }
 
 func (s *Service) Refresh(ctx context.Context, raw string) (*TokenPair, error) {
@@ -82,7 +84,7 @@ func (s *Service) Refresh(ctx context.Context, raw string) (*TokenPair, error) {
 	if err := s.store.MarkUsed(ctx, tx, rt.ID, now); err != nil {
 		return nil, err
 	}
-	pair, err := s.issue(ctx, tx, rt.UserID, rt.Role, rt.FamilyID, now)
+	pair, err := s.issue(ctx, tx, rt.UserID, rt.Role, rt.FamilyID, now, rt.ExpiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +109,7 @@ func (s *Service) RevokeUser(ctx context.Context, userID uuid.UUID) error {
 	return s.store.RevokeUser(ctx, s.pool, userID, s.now())
 }
 
-func (s *Service) issue(ctx context.Context, q querier, userID uuid.UUID, role string, familyID uuid.UUID, now time.Time) (*TokenPair, error) {
+func (s *Service) issue(ctx context.Context, q querier, userID uuid.UUID, role string, familyID uuid.UUID, now, refreshExp time.Time) (*TokenPair, error) {
 	access, accessExp, err := s.signer.Sign(userID.String(), role, now)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,6 @@ func (s *Service) issue(ctx context.Context, q querier, userID uuid.UUID, role s
 	if err != nil {
 		return nil, err
 	}
-	refreshExp := now.Add(s.refreshTTL)
 
 	err = s.store.Insert(ctx, q, RefreshToken{
 		ID:        uuid.New(),
